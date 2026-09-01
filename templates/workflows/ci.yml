@@ -1,0 +1,31 @@
+# Ava template — PR checks.
+# Substitute {{...}} at install time. Delete jobs the project does not need.
+name: CI
+
+on:
+  pull_request:
+    branches: ["{{integration}}", "{{production}}"]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref so rapid re-pushes do not burn
+# minutes. Per-ref so distinct PRs never cancel each other.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "{{nodeVersion}}"
+          cache: "{{packageManager}}"
+      - run: {{installCommand}}
+      - run: {{testCommand}}
+      - name: Format check
+        # Many build pipelines treat formatting violations as errors, so an
+        # unformatted merge can break the deploy. Fail here instead, where it
+        # is cheap and obvious.
+        run: {{formatCheckCommand}}

@@ -1,0 +1,53 @@
+# Ava template — Slack notifications for the four events that change what a
+# human does next. Deliberately does NOT notify on every push or green run:
+# a channel that fires constantly gets muted, and a muted channel looks like
+# coverage while providing none.
+#
+# Requires repo secret SLACK_WEBHOOK_URL (Slack → Incoming Webhooks).
+name: Notify
+
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    types: [closed]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    # Skip the noisy cases entirely rather than posting and filtering later.
+    if: >
+      github.event_name == 'issues' ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true) ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure')
+    steps:
+      - name: Compose and send
+        env:
+          WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          set -uo pipefail
+          [ -n "${WEBHOOK:-}" ] || { echo "::warning::SLACK_WEBHOOK_URL unset; skipping"; exit 0; }
+
+          case "${{ github.event_name }}" in
+            issues)
+              TEXT=":inbox_tray: *New issue* <${{ github.event.issue.html_url }}|#${{ github.event.issue.number }}> — ${{ github.event.issue.title }}
+Opened by ${{ github.event.issue.user.login }}. Needs triage."
+              ;;
+            pull_request)
+              TEXT=":white_check_mark: *Merged* <${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }}> — ${{ github.event.pull_request.title }}
+Into \`${{ github.event.pull_request.base.ref }}\`. If it closed an issue, verify on the deployed environment before considering it done — a merge proves the code is in a branch, not that it is live."
+              ;;
+            workflow_run)
+              TEXT=":red_circle: *CI failed* on \`${{ github.event.workflow_run.head_branch }}\`
+<${{ github.event.workflow_run.html_url }}|Run ${{ github.event.workflow_run.run_number }}> — check whether this is a code failure or an infrastructure one before debugging the branch."
+              ;;
+          esac
+
+          curl -sS -X POST -H 'Content-Type: application/json' \
+            --data "$(jq -n --arg t "$TEXT" '{text:$t}')" "$WEBHOOK" || true

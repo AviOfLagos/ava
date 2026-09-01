@@ -1,0 +1,74 @@
+{
+  "$schema": "./ava.config.schema.json",
+  "project": {
+    "name": "My Project",
+    "repo": "owner/repo",
+    "description": "One line. What this product does for a user — Ava uses it to judge blast radius."
+  },
+  "branches": {
+    "integration": "qa",
+    "production": "main",
+    "featurePrefix": "fix/",
+    "promotionPrefix": "promote/",
+    "directPushBlocked": ["qa", "main"]
+  },
+  "environments": [
+    {
+      "name": "production",
+      "url": "https://example.com",
+      "branch": "main",
+      "deployProvider": "vercel",
+      "verifyCommand": "scripts/verify-deploy.sh <sha>"
+    },
+    {
+      "name": "qa",
+      "url": "https://qa.example.com",
+      "branch": "qa",
+      "deployProvider": "vercel",
+      "verifyCommand": null
+    }
+  ],
+  "slack": {
+    "enabled": false,
+    "workspace": "",
+    "channels": {
+      "ops": { "name": "engineering-ops", "id": "", "purpose": "CI, deploys, alerts, agent reports" },
+      "inbound": { "name": "inbound", "id": "", "purpose": "customer email + product feedback" }
+    }
+  },
+  "people": {
+    "releaseApprovers": [
+      {
+        "role": "QA",
+        "name": "",
+        "slackUserId": "",
+        "email": "",
+        "note": "Production promotion is gated on an approval from someone in this list."
+      }
+    ]
+  },
+  "release": {
+    "requireApproval": true,
+    "approvalMaxAgeHours": 24,
+    "requireGreenCI": true,
+    "allowMergeWhenCIAbsent": false,
+    "autonomousMerge": false
+  },
+  "autonomy": {
+    "default": "act",
+    "allowSendCustomerReplies": false,
+    "allowAutonomousPromotion": false
+  },
+  "database": {
+    "productionIdentifier": "",
+    "note": "A substring that identifies the PRODUCTION database host. Ava refuses schema-mutating commands against any connection string containing it."
+  },
+  "memory": {
+    "provider": "none",
+    "note": "none | cavemem | mempalace. See queues/setup-memory.md."
+  },
+  "docs": {
+    "landmines": "AVA-NOTES.md",
+    "note": "Project-specific traps Ava must not repeat. Ava appends to this file as it learns them."
+  }
+}

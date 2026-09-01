@@ -1,0 +1,30 @@
+# Ava template — alert when a deployment fails.
+#
+# A failed production deployment is the quietest serious failure there is: the
+# app keeps serving the OLD commit, every health check stays green, and the
+# team believes the fix shipped. Alert on it explicitly.
+name: Deploy Alerts
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    if: github.event.deployment_status.state == 'failure'
+    steps:
+      - name: Notify
+        env:
+          WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          set -uo pipefail
+          [ -n "${WEBHOOK:-}" ] || exit 0
+          TEXT=":rotating_light: *Deployment FAILED* — \`${{ github.event.deployment.environment }}\`
+Commit \`${{ github.sha }}\`. ${{ github.event.deployment_status.description }}
+
+The previous deployment is still serving traffic, so nothing looks broken from outside. Anything merged since the last success is NOT live."
+          curl -sS -X POST -H 'Content-Type: application/json' \
+            --data "$(jq -n --arg t "$TEXT" '{text:$t}')" "$WEBHOOK" || true
