@@ -33,7 +33,7 @@ channel — it looks like coverage while providing none.
 
 ## Steps
 
-1. Copy the needed templates from `templates/workflows/` into
+1. Copy the needed templates from `$(ava-home)/templates/workflows/` into
    `.github/workflows/`, substituting the detected commands and branch names.
 2. If notifications are wanted, ensure a webhook secret exists. If not, stop and
    give the user the exact three steps: create an incoming webhook in Slack, run

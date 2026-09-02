@@ -22,12 +22,17 @@ anything else.
 ## Install
 
 ```
-Tell your agent: "install the Ava skill from https://github.com/AviOfLagos/ava"
-Restart your session.
-Type: /ava install
+/plugin marketplace add AviOfLagos/ava
+/plugin install ava@ava
 ```
 
-Full detail, including the agent-executable version, in
+Restart the session, then run `/ava install` once per project. Ava is installed
+on your machine and onboarded per repo: onboarding writes
+`.claude/ava.config.json`, and committing that file is what makes a teammate's
+Ava agree with yours.
+
+Want Ava's version pinned inside a single repo, or using an agent other than
+Claude Code? There is a vendored install too. Both are in
 [INSTALL.md](INSTALL.md).
 
 ## What it does

@@ -1,39 +1,88 @@
 # Installing Ava
 
-Two audiences. Pick the one that applies.
+Ava installs two ways. Pick one.
+
+| | **Plugin** | **Vendored** |
+| --- | --- | --- |
+| Where it lives | Once on your machine | Committed into one repo |
+| Available in | Every project you open | That repo |
+| Updates | `/plugin update ava` | Re-run the installer |
+| Teammates get it | By installing it themselves | With their next `git pull` |
+| Works with | Claude Code | Any agent that reads Markdown skills |
+
+**Install it as a plugin unless you have a reason not to.** Ava is a tool you
+use *on* projects, not a part of any one of them — you want it wherever you are.
+The vendored path exists for teams who want Ava's version pinned in the repo, or
+for agents other than Claude Code.
+
+Either way, **each project is onboarded separately**. Ava's judgement is
+portable; the branch names and channels are not.
 
 ---
 
-## For a coding agent
+## Plugin install
 
-If a human told you *"install the Ava skill"*, this section is your instruction
-set. Follow it top to bottom.
+```
+/plugin marketplace add AviOfLagos/ava
+/plugin install ava@ava
+```
 
-### 1. Fetch and copy
+Restart the session, then in each project you want Ava to run:
 
-From the root of the target repository:
+```
+/ava install
+```
+
+That is the whole thing. `/ava install` runs the `onboard` queue, which maps the
+repo, detects the branch flow and deploy target, wires Slack, and writes
+`.claude/ava.config.json`. Commit that file — it is what makes your teammates'
+Ava agree with yours.
+
+Outside an interactive session the same two steps are:
+
+```bash
+claude plugin marketplace add AviOfLagos/ava
+claude plugin install ava@ava
+```
+
+### What lands where
+
+Nothing is copied into your repo except its own config:
+
+| Path | What |
+| ---- | ---- |
+| *(plugin install root)* | The skill, six agents, ten queues, templates, `bin/ava-home` |
+| `.claude/ava.config.json` | **Per project.** Written by onboarding, committed |
+| `.claude/ava-state.json` | **Per project.** Gitignored — chat cursors, dedupe lists |
+| `.claude/queues/*.md` | **Per project, optional.** Queues this repo added |
+| `AVA-NOTES.md` | **Per project.** Traps Ava learns here |
+
+`ava-home` prints the install root; `ava-home queues` prints the queue registry
+Ava will actually read, project overrides first.
+
+---
+
+## Vendored install
+
+For pinning Ava in a repo, or for agents other than Claude Code.
 
 ```bash
 git clone --depth 1 https://github.com/AviOfLagos/ava.git /tmp/ava-install
-
-mkdir -p .claude/skills .claude/agents .claude/queues
-cp -R /tmp/ava-install/skills/ava      .claude/skills/
-cp    /tmp/ava-install/agents/*.md     .claude/agents/
-cp    /tmp/ava-install/queues/*.md     .claude/queues/
-cp -R /tmp/ava-install/templates       .claude/ava-templates
-
+/tmp/ava-install/scripts/install.sh .
 rm -rf /tmp/ava-install
 ```
 
-For an agent other than Claude Code, place the files wherever that agent
-discovers skills and sub-agents. The content is plain Markdown with YAML
-frontmatter and carries no Claude-specific syntax — only the *location*
-changes.
+This copies the skill, agents, queues, templates and `bin/ava-home` into
+`.claude/`. For a non-Claude-Code agent, put them wherever that agent discovers
+skills and sub-agents — the content is plain Markdown with YAML frontmatter and
+carries no Claude-specific syntax, so only the *location* changes.
 
-### 2. Make them survive a clone
+Then restart the session and run `/ava install`.
 
-Many repos ignore `.claude/` wholesale. If so, **do not un-ignore everything** —
-add narrow negations so team tooling is shared while local state stays private:
+### Make it survive a clone
+
+Many repos ignore `.claude/` wholesale, which means none of this reaches your
+teammates. Add narrow negations rather than un-ignoring everything:
 
 ```gitignore
 .claude/
@@ -44,35 +93,38 @@ add narrow negations so team tooling is shared while local state stays private:
 !.claude/agents/**
 !.claude/queues/
 !.claude/queues/**
+!.claude/ava/
+!.claude/ava/**
+!.claude/ava.config.json
 .claude/ava-state.json
 .claude/settings.local.json
 ```
 
 Verify with `git add -An .claude` before committing. Exactly the definition
-files should be listed and nothing else.
+files and the config should be listed, and nothing else.
 
-### 3. Restart the agent session
+---
 
-**Skills and sub-agents are discovered at session start.** Files added
-mid-session will not register. Restart, then confirm `/ava` appears.
+## Restart. Really.
+
+**Skills, agents and plugins are discovered at session start.** Files added
+mid-session do not register, and neither does a freshly installed plugin.
 
 This step is skipped constantly and produces a confusing "the skill doesn't
-work" — it is almost always this.
+work". It is almost always this. Restart, then confirm `/ava` appears.
 
-### 4. Onboard
+---
 
-Run `/ava install`. The `onboard` queue maps the repo, detects the branch flow
-and deploy target, wires Slack, and writes `.claude/ava.config.json`.
-
-It asks few questions and answers what it can by looking. Do not pre-fill the
-config by hand — let onboarding detect it, then correct what it got wrong.
-
-### 5. Verify before reporting success
+## Verify before reporting success
 
 ```bash
+ava-home && ava-home queues        # plugin install: root, then 10+ queue paths
 test -f .claude/ava.config.json && echo "config written"
-ls .claude/skills/ava/SKILL.md .claude/agents/ava-*.md .claude/queues/*.md
 ```
+
+`ava-home: command not found` means either the plugin is installed but the
+session was not restarted, or the install did not take. On a vendored install,
+run `.claude/ava/bin/ava-home` instead.
 
 Then run `/ava status`. It should describe the project back to you accurately.
 **If it names the wrong branch or repo, onboarding was wrong — fix the config
@@ -80,67 +132,52 @@ before using anything else.** Everything downstream trusts that file.
 
 ---
 
-## For a human
-
-```
-1. Clone this repo somewhere, or point your agent at it.
-2. Tell your agent: "install the Ava skill from https://github.com/AviOfLagos/ava"
-3. Restart your Claude Code session.
-4. Type: /ava install
-5. Answer a handful of questions.
-6. Type: /ava
-```
-
-Steps 3 and 4 are the ones people skip. Without the restart the command does not
-exist; without onboarding Ava does not know your branches.
-
----
-
-## What gets installed
-
-| Path | What |
-| ---- | ---- |
-| `.claude/skills/ava/SKILL.md` | The router — intent → queues, priority ladder, hard rules |
-| `.claude/agents/ava-*.md` | Six sub-agents |
-| `.claude/queues/*.md` | Ten playbooks; add your own with `/ava update queues` |
-| `.claude/ava-templates/` | CI workflows and the config template |
-| `.claude/ava.config.json` | Written by onboarding. Project-specific facts |
-| `.claude/ava-state.json` | Gitignored. Chat cursors, dedupe lists |
-| `AVA-NOTES.md` | Project-specific traps Ava learns |
-
 ## Requirements
 
 **Required:** `git`, `gh` (authenticated), a repo with a remote.
 
 **Optional but recommended:** Slack tools available to the agent (channel
-watching, inbound triage, release approval); a deploy CLI such as `vercel`;
-a memory MCP provider (see `queues/setup-memory.md`).
+watching, inbound triage, release approval); a deploy CLI such as `vercel`; a
+memory MCP provider (see `queues/setup-memory.md`).
 
 Everything optional degrades gracefully. Without Slack you lose approval-gated
 promotion and inbound triage; issues, PRs and CI all still work.
 
+---
+
 ## Updating
 
-```bash
-cd /tmp && git clone --depth 1 https://github.com/AviOfLagos/ava.git ava-update
-cp -R ava-update/skills/ava .claude/skills/
-cp ava-update/agents/*.md .claude/agents/
-cp ava-update/queues/*.md .claude/queues/
-rm -rf ava-update
+```
+/plugin update ava
 ```
 
-**This overwrites queues.** Any queue you wrote yourself with a name matching an
-upstream one is lost. Keep custom queues under distinct names, and commit before
-updating so the diff is reviewable.
+Restart to apply. Your queues are safe: an update replaces the shipped
+playbooks only, and anything under a project's `.claude/queues/` overrides a
+shipped file of the same name rather than being overwritten by it. Project
+config is never touched.
 
-`.claude/ava.config.json` is never touched by an update.
+Vendored installs re-run `scripts/install.sh`, which **does** overwrite the
+shipped queues in place. Commit first so the diff is reviewable.
+
+---
 
 ## Uninstalling
 
+```
+/plugin uninstall ava
+```
+
+Per project, if you want the traces gone too:
+
 ```bash
-rm -rf .claude/skills/ava .claude/agents/ava-*.md .claude/queues .claude/ava-templates
 rm -f .claude/ava.config.json .claude/ava-state.json
 ```
 
-Then revert the `.gitignore` negations. `AVA-NOTES.md` is worth keeping — it is
-your project's accumulated hard-won knowledge, not Ava's.
+Leave `.claude/queues/` alone unless you mean it — those are queues you wrote,
+not Ava's.
+
+Vendored: `rm -rf .claude/ava .claude/skills/ava .claude/agents/ava-*.md` and
+revert the `.gitignore` negations.
+
+`AVA-NOTES.md` is worth keeping either way — it is your project's accumulated
+hard-won knowledge, not Ava's.

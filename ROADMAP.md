@@ -35,11 +35,31 @@ commands as a dated appendix — noting they may drift.
 Also confirm cavemem's "Frozen" status still holds. If it is archived outright,
 demote it to a footnote and make MemPalace the default.
 
-## 3. Publish as an installable plugin
+## 3. Publish as an installable plugin — **done**
 
-Copy-paste install works but is not what "install the Ava skill" ought to mean.
-Investigate a plugin marketplace manifest so it becomes a single install
-command, and keep the manual path documented as a fallback.
+`.claude-plugin/marketplace.json` and `plugin.json` ship in this repo, so
+`/plugin marketplace add AviOfLagos/ava` + `/plugin install ava@ava` installs
+Ava once for every project. The vendored path is kept and documented.
+
+One thing a skill cannot do: `${CLAUDE_PLUGIN_ROOT}` is exported to hook
+commands only and is empty in a normal shell, so the skill cannot use it to find
+its own queues and templates. `bin/ava-home` resolves its own location instead,
+and is on PATH automatically for plugin installs.
+
+One trap worth writing down: **do not add an `agents` key to `plugin.json`.**
+Agents are auto-discovered from `agents/`, and declaring the key — as a
+directory, or as an explicit list of files — silently registers zero of them.
+`claude plugin validate --strict` passes either way, so the only thing that
+catches it is `claude plugin details ava` after an install, which reads a
+snapshot taken at install time and therefore has to be re-checked after a
+reinstall, not after an edit.
+
+What is left is release discipline, not plumbing:
+
+- Bump `version` in **both** manifests together — `claude plugin tag` refuses if
+  they disagree — and tag `ava--v<version>` on release.
+- Nobody has yet installed this on a machine that has never had Ava vendored.
+  Test that path before telling anyone else to use it.
 
 ## 4. `/ava upgrade` needs a real test
 

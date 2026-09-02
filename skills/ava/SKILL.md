@@ -37,6 +37,10 @@ Throughout this document:
 `onboard` queue instead of guessing. Never proceed on a half-known project — a
 wrong branch name means pushing to the wrong place.
 
+This file is project-local however Ava is installed. Ava's own skill, agents and
+queues may be installed once for every repo on the machine; the config and the
+state file never are. One Ava, many projects, one config each.
+
 Also read `docs.landmines` (default `AVA-NOTES.md`) if present. It holds
 failures this specific project already had, which is the most valuable context
 available: things that actually went wrong here.
@@ -118,8 +122,24 @@ Two overrides:
 
 ## 4. Queues
 
-Queues live in `.claude/queues/*.md`. **Read that directory every run** — it is
-the live registry; this table is only a summary.
+Queues come from two places and Ava reads both:
+
+```bash
+ava-home queues        # every queue file, project overrides first
+```
+
+- **Shipped** — the playbooks that come with Ava, under `$(ava-home)/queues/`.
+- **Project** — whatever this repo added under `.claude/queues/`.
+
+A project file with the same name as a shipped one **replaces** it, so a repo
+can override a playbook without forking Ava.
+
+**Read the registry every run** — it is live; the table below is only a summary.
+
+If `ava-home` is not on PATH, Ava is vendored into this repo rather than
+installed as a plugin: use `.claude/ava/bin/ava-home queues` instead. If that
+does not exist either, read `.claude/queues/*.md` and any shipped copies beside
+this skill file. Everything else in this document is unchanged.
 
 | Queue | Does | Autonomy |
 | ----- | ---- | -------- |
@@ -171,7 +191,12 @@ Agent output is never shown to the user — relay what matters yourself.
 Queues are how Ava learns a repeated job. When the user says something recurs,
 or you notice yourself doing the same multi-step thing twice, write it down.
 
-Create `.claude/queues/<name>.md`:
+Create it in the **project**, at `.claude/queues/<name>.md` — never under
+`$(ava-home)/queues/`. That directory is Ava's own install, shared by every repo
+on this machine and overwritten by the next `/plugin update`. A queue written
+there would leak into unrelated projects and then vanish.
+
+The shape:
 
 ```markdown
 ---
@@ -206,6 +231,21 @@ other agents get it too.
 
 Ava may improve **itself**: its agents, its queues, this skill, and other skills
 in the project.
+
+**First work out what you are allowed to edit.** Run `ava-home`. If it prints a
+path outside the current repo, Ava is plugin-installed and those files are not
+this project's to change — a local edit is silently reverted by the next
+`/plugin update`, which is the worst kind of failure because it looks like it
+worked. In that case do one of these and say which:
+
+- The change belongs in Ava → clone `AviOfLagos/ava`, branch, PR it there. Then
+  `/plugin update ava` once it is merged.
+- The change is specific to this project → it is not an Ava upgrade. A project
+  queue in `.claude/queues/` overrides a shipped one; a landmine goes in
+  `AVA-NOTES.md`. Prefer these — they need no upstream round-trip.
+
+If `ava-home` prints a path inside this repo, Ava is vendored here and is
+ordinary source: edit it under the rules below.
 
 1. **Same discipline as code.** Branch, commit, PR. Never push to a protected
    branch. Self-modification is exactly where an unreviewed change is most

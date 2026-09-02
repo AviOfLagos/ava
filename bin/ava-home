@@ -1,0 +1,49 @@
+#!/usr/bin/env sh
+# ava-home — tell Ava where its own files live.
+#
+#   ava-home            print the Ava install root
+#   ava-home queues     print the effective queue registry, one path per line
+#
+# Ava installs two ways. As a Claude Code plugin this script is on PATH and the
+# shipped queues and templates sit under the install root. Vendored into a repo,
+# it sits at .claude/ava/bin/ava-home. Either way the queue registry is the
+# shipped playbooks plus whatever the current project added under
+# .claude/queues/ — and a project file beats a shipped one of the same name, so
+# a repo can override a playbook without forking Ava.
+#
+# Skills cannot use ${CLAUDE_PLUGIN_ROOT}: it is exported to hook commands only,
+# and is empty in a normal shell. Hence this script, which finds itself.
+
+set -eu
+
+self=$0
+# Follow symlinks so a linked install still resolves to its real directory.
+while [ -L "$self" ]; do
+  link=$(readlink "$self")
+  case $link in
+    /*) self=$link ;;
+    *)  self=$(dirname "$self")/$link ;;
+  esac
+done
+root=$(cd "$(dirname "$self")/.." && pwd)
+
+case ${1:-root} in
+  root)
+    printf '%s\n' "$root"
+    ;;
+  queues)
+    seen=''
+    for f in .claude/queues/*.md "$root"/queues/*.md; do
+      if [ ! -f "$f" ]; then continue; fi
+      name=$(basename "$f")
+      if [ "$name" = 'README.md' ]; then continue; fi
+      case " $seen " in *" $name "*) continue ;; esac
+      seen="$seen $name"
+      printf '%s\n' "$f"
+    done
+    ;;
+  *)
+    echo 'usage: ava-home [root|queues]' >&2
+    exit 2
+    ;;
+esac

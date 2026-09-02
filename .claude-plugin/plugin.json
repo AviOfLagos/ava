@@ -1,0 +1,22 @@
+{
+  "name": "ava",
+  "version": "1.0.0",
+  "description": "One command that runs a software project. Sizes up issues, PRs, CI, branch divergence, deploy state and chat, then dispatches sub-agents to triage issues, review PRs, recover CI, watch Slack, answer inbound customers, audit feature-vs-legal coverage, and gate promotion to production behind a named approver.",
+  "author": {
+    "name": "David Olatunji",
+    "url": "https://github.com/AviOfLagos"
+  },
+  "homepage": "https://github.com/AviOfLagos/ava",
+  "repository": "https://github.com/AviOfLagos/ava",
+  "license": "MIT",
+  "keywords": [
+    "orchestration",
+    "github",
+    "ci",
+    "code-review",
+    "release",
+    "triage",
+    "slack"
+  ],
+  "skills": "./skills/"
+}

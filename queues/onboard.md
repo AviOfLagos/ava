@@ -126,10 +126,23 @@ Raise any of these only if the user explicitly asks.
 
 ### 8. Write config and verify
 
-Write `.claude/ava.config.json` from `templates/ava.config.json`. Ensure
-`.gitignore` covers `.claude/ava-state.json` but **not** the skill, agents, or
-queues — those are team tooling and must survive a fresh clone. If `.claude/` is
-ignored wholesale, add narrow negations rather than un-ignoring everything.
+```bash
+mkdir -p .claude && cp "$(ava-home)/templates/ava.config.json" .claude/ava.config.json
+```
+
+Fill it in from what you detected. Then check `.gitignore`:
+
+- `.claude/ava-state.json` **must** be ignored — per-machine cursors, nothing a
+  teammate wants.
+- `.claude/ava.config.json` **must not** be — teammates and their agents need
+  the branch names, channels and approvers you just wrote.
+- If `ava-home` prints a path *inside this repo*, Ava is vendored here rather
+  than plugin-installed, and the same applies to the skill, agents and queues:
+  team tooling, must survive a fresh clone.
+
+If `.claude/` is ignored wholesale, add narrow negations rather than
+un-ignoring everything. Verify with `git add -An .claude` before committing —
+exactly the intended files should be listed and nothing else.
 
 Create `AVA-NOTES.md` with a one-line header if absent.
 
@@ -158,3 +171,12 @@ Two lists, kept short:
 "1. Run `X`" or "2. Give me Y". Numbered, no prose. This list is the handoff.
 
 Then: the config path, and the one command to start using it — `/ava`.
+
+Finally, say how a teammate gets the same setup. If `ava-home` resolves outside
+the repo, the config you just committed is not enough on its own — each person
+also installs Ava once, for every repo they work on:
+
+```
+/plugin marketplace add AviOfLagos/ava
+/plugin install ava@ava
+```
