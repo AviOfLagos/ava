@@ -64,8 +64,11 @@ vercel whoami 2>/dev/null && vercel project ls 2>/dev/null | head
 Ask only what you cannot detect: the production URL, and the QA/staging URL if
 one exists. Fill `environments[]`.
 
-If the deploy CLI is not authenticated, do not stall the whole onboarding —
-record it as a blocker and continue.
+If the deploy CLI is not authenticated, try to fix it rather than filing it:
+`vercel login` and the equivalents open a browser, and with browser tools
+available you can carry that through — see **Doing the work yourself** in
+`SKILL.md`, and stop at the boundaries it names. Only if that is unavailable
+does this become a recorded blocker, and then say what would unblock it.
 
 ### 4. Chat — Slack
 
@@ -134,6 +137,9 @@ Fill it in from what you detected. Then check `.gitignore`:
 
 - `.claude/ava-state.json` **must** be ignored — per-machine cursors, nothing a
   teammate wants.
+- `.claude/ava-setup-plan.md` **must** be ignored — it records what one person
+  approved on one machine, and is actively misleading in someone else's
+  checkout.
 - `.claude/ava.config.json` **must not** be — teammates and their agents need
   the branch names, channels and approvers you just wrote.
 - If `ava-home` prints a path *inside this repo*, Ava is vendored here rather
@@ -146,12 +152,21 @@ exactly the intended files should be listed and nothing else.
 
 Create `AVA-NOTES.md` with a one-line header if absent.
 
-### 9. Offer the follow-on setup
+### 9. Hand off to `setup-toolchain`
 
-Do not run these automatically — they modify CI and install external tools:
+Do not ask a second round of yes/no questions here. Everything still
+outstanding — the repo scan, skills worth installing for *this* project,
+persistent memory, current library docs, CI and notification workflows — goes
+into one plan the user reads once.
 
-> Two optional next steps: `setup-ci-monitoring` installs CI + notification
-> workflows, and `setup-memory` wires persistent memory. Want either now?
+Run `setup-toolchain`. It writes `.claude/ava-setup-plan.md`, asks for a single
+confirmation, and then executes without further prompting. `setup-memory` and
+`setup-ci-monitoring` become items in that plan rather than separate things the
+user has to know to ask for.
+
+The first item it proposes is a supply-chain scan of the repo you have just
+finished mapping, and that ordering is deliberate: the triggers are opening the
+folder and running a build, which are the next two things anyone does.
 
 ## Stop conditions
 

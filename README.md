@@ -37,7 +37,7 @@ Claude Code? There is a vendored install too. Both are in
 
 ## What it does
 
-**Ten queues** — named playbooks Ava dispatches:
+**Eleven queues** — named playbooks Ava dispatches:
 
 | Queue | Does |
 | ----- | ---- |
@@ -50,6 +50,7 @@ Claude Code? There is a vendored install too. Both are in
 | `feature-legal` | Does the feature work, and is it disclosed |
 | `setup-ci-monitoring` | Installs CI + notification workflows |
 | `setup-memory` | Wires persistent memory across sessions |
+| `setup-toolchain` | Scans the repo, then proposes and installs the skills it needs, **gated** on one confirmation |
 | `promote-to-production` | Release, **gated** on a named approver's confirmation |
 
 **Six sub-agents** run the work concurrently in the background, so you can walk

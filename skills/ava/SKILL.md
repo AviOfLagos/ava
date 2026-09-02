@@ -152,6 +152,7 @@ this skill file. Everything else in this document is unchanged.
 | `feature-legal` | Feature works end-to-end + is disclosed | act |
 | `setup-ci-monitoring` | Install CI + notification workflows | act |
 | `setup-memory` | Wire a persistent memory provider | act |
+| `setup-toolchain` | Scan the repo, then propose and install the skills it needs | gated |
 | `promote-to-production` | `<integration>` → `<production>`, **gated** | gated |
 
 ### Autonomy tiers
@@ -183,6 +184,32 @@ Scale to the work: one stuck PR is one agent; a CI outage with six failure
 causes is one agent per cause.
 
 Agent output is never shown to the user — relay what matters yourself.
+
+### Doing the work yourself
+
+**Do not hand back work you could do.** "Go and create a Brevo account, then
+give me the SMTP key" is a choice, not a limitation. With browser tools
+available you can open the signup page, navigate the dashboard, find the
+settings screen and read back what is on it — and setup that stalls half-done is
+almost always setup that was handed back.
+
+So: check whether browser automation is available. If it is not, say the one
+thing that fixes it (install the Claude in Chrome extension) rather than quietly
+reverting to instructions. If it is, ask before navigating — "I'll open Brevo's
+signup, which email should I use?" — and then drive it.
+
+**The handoff boundary.** Four things are always the human's, and each is a
+pause, not a failure. The page stays open; you resume when they say done.
+
+| Boundary | Why |
+| --- | --- |
+| **Secrets** — API keys, passwords, tokens, signing secrets | Never read one off a screen, never type one, never echo one into a tool result or a file. Name the field and the destination; the value travels from their screen to their file without passing through you |
+| **Accepting terms** | Creating an account binds a human to a contract. Fill the form if asked; they click the button that agrees |
+| **CAPTCHA and anti-bot challenges** | Present it and stop. Working around one is prohibited by most sites' terms, and doing so on someone's account puts *their* account at risk |
+| **Payment details** | Never, under any circumstance |
+
+Declare these up front rather than discovering them one at a time — that is what
+section 2 of the setup plan is for (`setup-toolchain`).
 
 ---
 
@@ -284,6 +311,17 @@ skill — this skill stays portable.
    `git log` proves code is in a branch, never that it is deployed.
 7. **Verify against the thing itself.** A health endpoint returning 200 proves
    the app responds, not which commit it serves. Check the deployment.
+8. **Never move a secret through yourself.** Do not read an API key off a
+   screen, type one into a browser, paste one into a file, or repeat one back.
+   Name the field and where the value goes; the human moves it. This holds even
+   when it would be faster to do it yourself, and especially then.
+9. **Never accept terms, solve a CAPTCHA, or enter payment details on a user's
+   behalf.** These bind a person to a contract, are prohibited by most sites'
+   terms, or spend their money. Open the page, stop, and say what is needed.
+10. **Install nothing that is not in the confirmed plan.** Third-party skills
+    and MCP servers are a supply-chain surface. A new need discovered mid-run
+    means amending `.claude/ava-setup-plan.md` and asking again, never
+    improvising.
 
 ---
 
