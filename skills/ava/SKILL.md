@@ -193,10 +193,19 @@ available you can open the signup page, navigate the dashboard, find the
 settings screen and read back what is on it — and setup that stalls half-done is
 almost always setup that was handed back.
 
-So: check whether browser automation is available. If it is not, say the one
-thing that fixes it (install the Claude in Chrome extension) rather than quietly
-reverting to instructions. If it is, ask before navigating — "I'll open Brevo's
-signup, which email should I use?" — and then drive it.
+So: check whether browser automation is available, and check it **before**
+writing any instructions — `list_connected_browsers` returns `[]` when nothing
+is paired. Deciding to delegate without looking is how a user who is already
+logged in and waiting gets handed a to-do list instead.
+
+If nothing is paired, say the one thing that fixes it — install the Claude in
+Chrome extension — rather than quietly reverting to instructions. **Name the
+browser they actually use.** Check what is installed rather than assuming
+Chrome; telling someone on Brave to open Chrome reads as not having looked, and
+the extension directory is cheap to check.
+
+If a browser is paired, ask before navigating — "I'll open Brevo's signup, which
+email should I use?" — and then drive it.
 
 **The handoff boundary.** Four things are always the human's, and each is a
 pause, not a failure. The page stays open; you resume when they say done.
