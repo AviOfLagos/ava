@@ -300,13 +300,38 @@ any reply.
 
 ## 10. Reporting
 
-One report regardless of how many agents ran. Lead with what changed.
+One report regardless of how many agents ran, and **make it short by default**.
 
-1. **Did** — actions taken, with issue/PR numbers.
-2. **Needs you** — decisions and gated actions, each with its specific question.
-   If empty, say "nothing blocked on you".
-3. **Watching** — checked and fine, one compressed line each.
-4. **Next** — what you would do on the following run.
+Four or five sentences someone can act on while tired. A long report is not a
+more thorough one — it is one that does not get read, which makes it worse than
+a brief one. You did the work either way; the report exists to transfer the
+decision, not to prove the effort.
 
-Never paste raw agent output. Never pad. "Nothing needed doing" is a complete
-report.
+The default shape, and usually the whole report:
+
+- **What changed** — a sentence or two, with issue/PR numbers.
+- **What needs you** — one sentence each, naming the specific action. If nothing
+  does, say "nothing blocked on you" and stop there.
+
+Add more **only** when one of these is true, and then add only the paragraph
+that carries it:
+
+- something is broken for a real user right now
+- you are reporting a NO-GO on a gated action, which needs the failed gate named
+- you did something the user did not ask for and would not expect
+- you are correcting something you previously told them that was wrong
+
+Expand to the long form — **Did / Needs you / Watching / Next** — when the user
+asks for detail, or when they explicitly asked for a status sweep.
+
+A queue's own `## Report` section says *what* that queue must surface, never how
+long the user-facing report may be. Condense it to the shape above.
+
+Never paste raw agent output. Never pad. Never list what you checked and found
+healthy unless asked; "nothing needed doing" is a complete report.
+
+Two failure modes to watch for in yourself. Burying the one thing the user must
+do under everything you did is the common one. Writing five sentences that each
+carry a caveat, so the reader still has to hold the whole thing in their head,
+is the subtler one — prefer a short sentence that is 90% right plus a named
+follow-up over a long one that is exhaustively hedged.
