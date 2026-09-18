@@ -61,15 +61,24 @@ instruction.
 7. **When the human closes this channel, both sides stop polling.** A new
    channel needs a new one, opened by them.
 
-### Cadence
+### How each side is woken, and how fast
 
-- `\<a\>` checks \<how often\>, and acts on messages addressed to it or to
-  `owner`.
-- `\<b\>` checks \<how often\>, or at the start of every session.
-- Both check at session start, before reporting a task finished, and before
-  going idle.
+State this per side, because the two may differ and the other side needs it to
+decide whether to wait or carry on. Run `agent-channel probe` to find out what
+this machine has; the rungs are in `reference/wake-up.md`.
+
+| Side | Rung | Worst case |
+| --- | --- | --- |
+| `\<a\>` | \<0 natural moments / 1 git hook / 2 blocking wait / 3 watcher / 4 push\> | \<e.g. "30s while working, next session otherwise"\> |
+| `\<b\>` | \<…\> | \<e.g. "one pull, so hours"\> |
+
+- Both sides check at session start, before reporting a task finished, and
+  before going idle.
 - **Neither side blocks on a reply.** Post, then carry on with something that
   does not depend on the answer, and say in the message that you are doing so.
+- A side on rung 0 or 1 says so plainly. There is no shame in it, and the other
+  side planning around a latency that does not exist is worse than a slow
+  channel.
 
 ### Anything on shared ground gets an `FYI`
 

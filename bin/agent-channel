@@ -1,0 +1,393 @@
+#!/usr/bin/env sh
+# agent-channel — a coordination channel between AI sessions on different machines.
+#
+#   agent-channel init [--me NAME] [--peer NAME] [--transport issue|file]
+#   agent-channel probe                     which wake-up rung this machine has
+#   agent-channel post --type T [--to WHO] [--re ID] [--file F | -]
+#   agent-channel read [--since ID] [--all] [--mine]
+#   agent-channel unread                    messages after the cursor, addressed to me
+#   agent-channel wait [--timeout S] [--interval S]
+#   agent-channel watch [--interval S]      background poller: inbox file + notification
+#   agent-channel cursor [ID]               show, or advance to, the last id processed
+#   agent-channel install-hooks             print unread on every git pull
+#
+# Why this exists: two sessions on two machines cannot see each other, and most
+# coding agents are turn-based — they act only when a human prompts them, so
+# "poll every ten minutes" is not something they can do. This gives every rung
+# of that ladder one command, so an agent that can run a shell command can
+# block on `wait`, and an agent that cannot still gets `read` at the start of a
+# turn while a git hook tells its human there is something to read.
+#
+# POSIX sh on purpose. No jq, no python, no node. `gh` is needed only for the
+# issue transport; the file transport needs nothing but git.
+
+set -eu
+
+usage() { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+
+# ---------------------------------------------------------------- state ----
+# Config is shell key=value rather than JSON so this script can parse it with
+# `.` and needs no parser installed. Ava's own config stays JSON; this is the
+# script's private state, and a channel that only works where jq is installed
+# would fail exactly the harnesses this exists for.
+root() { git rev-parse --show-toplevel 2>/dev/null || pwd; }
+CONF="$(root)/.claude/agent-channel.conf"
+CURSOR="$(root)/.claude/agent-channel.cursor"
+ETAG="$(root)/.claude/agent-channel.etag"
+INBOX="$(root)/.claude/agent-channel.inbox"
+
+load() {
+  [ -f "$CONF" ] || die "no channel here. Run: agent-channel init"
+  # shellcheck disable=SC1090
+  . "$CONF"
+}
+die() { echo "agent-channel: $*" >&2; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# --------------------------------------------------------------- init -----
+cmd_init() {
+  me=""; peer=""; transport=""; issue=""; file="COORDINATION.md"
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --me) me=$2; shift 2 ;;
+      --peer) peer=$2; shift 2 ;;
+      --transport) transport=$2; shift 2 ;;
+      --issue) issue=$2; shift 2 ;;
+      --file) file=$2; shift 2 ;;
+      *) usage 1 ;;
+    esac
+  done
+  [ -n "$me" ] || die "--me is required: the short name this side posts under"
+  [ -n "$peer" ] || die "--peer is required: the short name of the other side"
+
+  if [ -z "$transport" ]; then
+    # Prefer the issue: appends never conflict, ordering is stable, and a human
+    # can read it from a phone to arbitrate an escalation.
+    if have gh && gh auth status >/dev/null 2>&1 \
+       && gh repo view --json hasIssuesEnabled -q .hasIssuesEnabled 2>/dev/null | grep -q true
+    then transport=issue
+    else transport=file
+    fi
+  fi
+
+  if [ "$transport" = issue ] && [ -z "$issue" ]; then
+    die "--issue N is required for the issue transport (create it first, with the opening post as its body)"
+  fi
+
+  mkdir -p "$(dirname "$CONF")"
+  {
+    echo "# agent-channel — written by \`agent-channel init\`."
+    echo "# Committed on purpose: both sides must agree on transport and names."
+    echo "ME=$me"
+    echo "PEER=$peer"
+    echo "TRANSPORT=$transport"
+    [ "$transport" = issue ] && echo "ISSUE=$issue"
+    [ "$transport" = file ] && echo "FILE=$file"
+    echo "PREFIX=$(printf '%s' "$me" | cut -c1 | tr '[:lower:]' '[:upper:]')"
+  } > "$CONF"
+
+  if [ "$transport" = file ]; then
+    touch "$(root)/$file"
+    ga="$(root)/.gitattributes"
+    if ! grep -q "^$file  *merge=union" "$ga" 2>/dev/null; then
+      {
+        echo ""
+        echo "# An append-only channel: two sides adding different messages is not a"
+        echo "# disagreement. Without this, every push by one side conflicts the other."
+        echo "$file merge=union"
+      } >> "$ga"
+      echo "added 'merge=union' for $file to .gitattributes — commit it"
+    fi
+  fi
+
+  # The cursor is per-machine. Sharing it means each side keeps resetting the
+  # other's read position.
+  gi="$(root)/.gitignore"
+  grep -q "agent-channel.cursor" "$gi" 2>/dev/null || {
+    printf '\n.claude/agent-channel.cursor\n.claude/agent-channel.etag\n.claude/agent-channel.inbox\n' >> "$gi"
+  }
+
+  echo "channel ready: $me -> $peer over $transport"
+  cmd_probe
+}
+
+# -------------------------------------------------------------- probe ----
+# Reports the best wake-up rung available here. The rungs are described in
+# skills/agent-channel/reference/wake-up.md; an agent should read this before
+# promising the other side a response time.
+cmd_probe() {
+  echo "wake-up rungs available here:"
+  echo "  0 read-at-natural-moments   yes (always)"
+  if [ -d "$(root)/.git" ]; then
+    echo "  1 git hook rings the bell   yes — run: agent-channel install-hooks"
+  else
+    echo "  1 git hook rings the bell   no (not a git repo)"
+  fi
+  echo "  2 blocking wait             yes — agent-channel wait --timeout 240"
+  if have setsid || have nohup; then
+    echo "  3 background watcher        yes — agent-channel watch &"
+  else
+    echo "  3 background watcher        no (no nohup or setsid)"
+  fi
+  if have node || have npx; then
+    echo "  4 webhook push              possible — needs a relay client and repo admin"
+  else
+    echo "  4 webhook push              no (needs node for a relay client)"
+  fi
+}
+
+# --------------------------------------------------------------- post ----
+next_id() {
+  last=$(list_raw | grep -o "\[id:${PREFIX}-[0-9]\{1,\}\]" | sed "s/.*-\([0-9]*\)\]/\1/" \
+         | sort -n | tail -1)
+  [ -n "${last:-}" ] || last=0
+  printf '%s-%03d' "$PREFIX" $((last + 1))
+}
+
+cmd_post() {
+  load
+  to=$PEER; type=""; re=""; body=""
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --to) to=$2; shift 2 ;;
+      --type) type=$2; shift 2 ;;
+      --re) re=$2; shift 2 ;;
+      --file) body=$2; shift 2 ;;
+      -) body=-; shift ;;
+      *) usage 1 ;;
+    esac
+  done
+  [ -n "$type" ] || die "--type is required: REQUEST, REPLY, FYI, ESCALATE or DONE"
+  case $type in
+    REPLY|ESCALATE|DONE) [ -n "$re" ] || die "$type must carry --re ID: the id it answers" ;;
+  esac
+  [ -n "$body" ] || die "--file F or - (stdin) is required"
+
+  id=$(next_id)
+  tmp=$(mktemp)
+  {
+    printf '[from:%s] [to:%s] [type:%s] [id:%s]' "$ME" "$to" "$type" "$id"
+    [ -n "$re" ] && printf ' [re:%s]' "$re"
+    printf '\n\n'
+    if [ "$body" = - ]; then cat; else cat "$body"; fi
+  } > "$tmp"
+
+  case $TRANSPORT in
+    issue)
+      # --body-file, never --body: backticks in --body are executed by the shell.
+      gh issue comment "$ISSUE" --body-file "$tmp" >/dev/null
+      ;;
+    file)
+      git pull --quiet --no-rebase 2>/dev/null || true
+      { printf '\n---\n\n'; cat "$tmp"; } >> "$(root)/$FILE"
+      git add "$FILE"
+      git commit --quiet -m "channel: $id"
+      git push --quiet || die "push rejected — pull and run the same command again"
+      ;;
+  esac
+  rm -f "$tmp"
+  echo "$id"
+}
+
+# --------------------------------------------------------------- read ----
+list_raw() {
+  case ${TRANSPORT:-} in
+    issue) gh api "repos/{owner}/{repo}/issues/$ISSUE/comments" --paginate \
+             --jq '.[] | .body' 2>/dev/null ;;
+    file)  cat "$(root)/$FILE" 2>/dev/null ;;
+    *)     : ;;
+  esac
+}
+
+# Print whole messages whose id sorts after the cursor. Ids are per-side and
+# monotonic, so "after" means: everything following the last line that carried
+# the cursor id. Cheap, and correct for an append-only log.
+cmd_read() {
+  load
+  since=""; all=0; mine=0
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --since) since=$2; shift 2 ;;
+      --all) all=1; shift ;;
+      --mine) mine=1; shift ;;
+      *) usage 1 ;;
+    esac
+  done
+  [ -n "$since" ] || since=$(cat "$CURSOR" 2>/dev/null || true)
+  out=$(list_raw)
+  if [ "$all" -eq 0 ] && [ -n "$since" ]; then
+    out=$(printf '%s\n' "$out" | awk -v m="\\[id:$since\\]" '
+      seen { print } $0 ~ m { seen = 1 }')
+  fi
+  if [ "$mine" -eq 1 ]; then
+    out=$(printf '%s\n' "$out" | awk -v me="\\[to:$ME\\]" '
+      /^\[from:/ { keep = ($0 ~ me || $0 ~ /\[to:owner\]/) }
+      keep { print }')
+  fi
+  printf '%s\n' "$out"
+}
+
+cmd_unread() {
+  load
+  n=$(cmd_read --mine | grep -c '^\[from:' || true)
+  echo "${n:-0}"
+}
+
+cmd_cursor() {
+  load
+  if [ $# -gt 0 ]; then printf '%s\n' "$1" > "$CURSOR"; echo "cursor -> $1"
+  else cat "$CURSOR" 2>/dev/null || echo "(unset)"; fi
+}
+
+# --------------------------------------------------------------- wait ----
+# Blocks until the channel changes or the timeout expires. This is the rung
+# that matters for a turn-based agent: it turns "my harness has no scheduler"
+# into one tool call that returns when there is something to read.
+#
+# Keep --timeout under the harness's own tool timeout and call it again; a
+# killed tool call leaves no state behind, so re-invoking is free.
+#
+# On the issue transport this costs no API quota at all. A conditional request
+# carrying the previous ETag answers 304 when nothing changed, and a 304 does
+# not decrement the rate limit — measured, not assumed. So a 15s interval is
+# cheaper than a 15m one used to be.
+changed() {
+  case $TRANSPORT in
+    issue)
+      url="repos/{owner}/{repo}/issues/$ISSUE/comments?per_page=1"
+      prev=$(cat "$ETAG" 2>/dev/null || true)
+      hdr=$(mktemp)
+      if [ -n "$prev" ]; then
+        gh api -i -H "If-None-Match: $prev" "$url" > "$hdr" 2>/dev/null || true
+      else
+        gh api -i "$url" > "$hdr" 2>/dev/null || true
+      fi
+      new=$(grep -i '^etag:' "$hdr" | sed 's/^[Ee][Tt][Aa][Gg]: *//' | tr -d '\r')
+      code=$(head -1 "$hdr" | awk '{print $2}')
+      rm -f "$hdr"
+      [ -n "$new" ] && printf '%s' "$new" > "$ETAG"
+      [ "$code" = "304" ] && return 1
+      [ -z "$prev" ] && return 1   # first call only establishes the baseline
+      return 0
+      ;;
+    file)
+      branch=$(git rev-parse --abbrev-ref HEAD)
+      prev=$(cat "$ETAG" 2>/dev/null || true)
+      new=$(git ls-remote origin "refs/heads/$branch" 2>/dev/null | cut -f1)
+      [ -n "$new" ] && printf '%s' "$new" > "$ETAG"
+      [ -z "$prev" ] && return 1
+      [ "$prev" = "$new" ] && return 1
+      git pull --quiet --no-rebase 2>/dev/null || true
+      return 0
+      ;;
+  esac
+}
+
+cmd_wait() {
+  load
+  timeout=240; interval=15
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --timeout) timeout=$2; shift 2 ;;
+      --interval) interval=$2; shift 2 ;;
+      *) usage 1 ;;
+    esac
+  done
+  changed || true          # establish a baseline without reporting it as news
+  waited=0
+  while [ "$waited" -lt "$timeout" ]; do
+    sleep "$interval"
+    waited=$((waited + interval))
+    if changed; then
+      cmd_read --mine
+      exit 0
+    fi
+  done
+  echo "no new messages after ${timeout}s (nothing is wrong; call again or carry on)" >&2
+  exit 2
+}
+
+# -------------------------------------------------------------- watch ----
+# Rung 3. Writes new messages to an inbox file the agent can read at the start
+# of any turn, and rings whatever bell this machine has. The agent still only
+# sees it on its next turn — nothing can change that — but the human is told
+# immediately, and the human is the one who starts the next turn.
+notify() {
+  if have notify-send; then notify-send "agent-channel" "$1" 2>/dev/null || true
+  elif have osascript; then osascript -e "display notification \"$1\" with title \"agent-channel\"" 2>/dev/null || true
+  else printf '\007' ; fi
+  printf '%s\n' "$1"
+}
+
+cmd_watch() {
+  load
+  interval=30
+  [ "${1:-}" = "--interval" ] && interval=$2
+  echo "watching $TRANSPORT every ${interval}s — inbox: $INBOX"
+  changed || true
+  while :; do
+    sleep "$interval"
+    if changed; then
+      cmd_read --mine > "$INBOX"
+      notify "$(cmd_unread) message(s) for $ME"
+    fi
+  done
+}
+
+# -------------------------------------------------------------- hooks ----
+# Rung 1, and the only rung that needs nothing of the agent at all. The human
+# pulls, git prints what is unread, and the human prompts their agent. That
+# works if the other side's "agent" is a text editor.
+#
+# Written into .git/hooks, which is per-clone and never committed. The
+# committed-hooks pattern (core.hooksPath + a tracked .githooks/) was tried and
+# is wrong here: each side runs this command, so each side ends up with the
+# files untracked, and the first push of them aborts the other side's next pull
+# with "untracked working tree files would be overwritten". A wake-up mechanism
+# is per-machine anyway — the other side may want a different rung entirely.
+HOOK_MARK='# installed by agent-channel'
+
+write_hook() {
+  path=$1
+  if [ -e "$path" ] && ! grep -q "$HOOK_MARK" "$path" 2>/dev/null; then
+    echo "left alone: $path already exists and is not ours" >&2
+    return 0
+  fi
+  cat > "$path" <<HOOK
+#!/usr/bin/env sh
+$HOOK_MARK — prints unread channel messages after a pull, so a human
+# notices without running anything. Delete this file to stop it.
+command -v agent-channel >/dev/null 2>&1 || exit 0
+n=\$(agent-channel unread 2>/dev/null || echo 0)
+[ "\${n:-0}" -gt 0 ] 2>/dev/null || exit 0
+printf '\n  %s unread agent-channel message(s) for you.\n  Read them with: agent-channel read --mine\n\n' "\$n"
+HOOK
+  chmod +x "$path"
+  echo "installed $path"
+}
+
+cmd_install_hooks() {
+  load
+  d=$(git rev-parse --git-path hooks 2>/dev/null) || die "not a git repository"
+  mkdir -p "$d"
+  write_hook "$d/post-merge"
+  write_hook "$d/post-checkout"
+  echo "the other side runs the same command on its own clone — hooks are per-machine"
+}
+
+# ---------------------------------------------------------------- main ----
+[ $# -gt 0 ] || usage 0
+cmd=$1; shift
+case $cmd in
+  init)          cmd_init "$@" ;;
+  probe)         cmd_probe ;;
+  post)          cmd_post "$@" ;;
+  read)          cmd_read "$@" ;;
+  unread)        cmd_unread ;;
+  cursor)        cmd_cursor "$@" ;;
+  wait)          cmd_wait "$@" ;;
+  watch)         cmd_watch "$@" ;;
+  install-hooks) cmd_install_hooks ;;
+  -h|--help|help) usage 0 ;;
+  *)             usage 1 ;;
+esac
