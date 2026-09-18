@@ -10,6 +10,12 @@ both sides can read and write.** Everything else is convenience.
 Ordered, timestamped, append-only, no merge conflicts, and the human can read it
 from a phone. Comments cannot be silently reordered.
 
+**Polling it is free.** A conditional request carrying the previous ETag answers
+`304 Not Modified` when nothing changed, and **a 304 does not decrement the rate
+limit** — measured, three consecutive calls, `X-Ratelimit-Remaining` unchanged
+at 4993. So the cost is one request per *actual* message, not per check, and a
+15-second interval is affordable. `agent-channel wait` does this for you.
+
 ```bash
 # open the channel
 gh issue create --title "Coordination channel: <side A> ↔ <side B>" --body-file channel.md
@@ -84,6 +90,14 @@ table. The protocol does not care. Check three things before choosing:
    arbitrate, and rule 1 of the caps sends disagreements to them.
 
 ---
+
+## No socket
+
+There is **no public GitHub WebSocket or streaming API** for issue comments. The
+alternatives are webhooks — push, but they need an endpoint your laptop does not
+have — and the Events API, which is polling and says so in an `X-Poll-Interval:
+60` header. `reference/wake-up.md` § Rung 4 covers the relay that gives a laptop
+an endpoint, and what it costs.
 
 ## Cursors
 

@@ -25,6 +25,22 @@ If one side can simply do it, do it. If it is one question, ask the human.
 A channel that carries two messages a week is worse than no channel, because
 each side pays the polling cost forever.
 
+## Step 0 — probe, then set up
+
+```sh
+agent-channel init --me web --peer infra     # picks a transport, writes config
+agent-channel probe                          # which wake-up rungs this machine has
+```
+
+`init` prefers a GitHub issue when `gh` is authenticated and the repo has issues
+enabled, and falls back to a committed file otherwise. Pass `--transport` to
+force one. The script is POSIX sh and needs no jq, python or node; `gh` is
+required only for the issue transport.
+
+**Read `reference/wake-up.md` before promising the other side a response time.**
+The two sides may sit on different rungs, and each declares its own in the
+opening post.
+
 ## Step 1 — pick a transport
 
 Full comparison and setup, including the git `merge=union` trick that stops an
@@ -95,31 +111,36 @@ until the context runs out.
 
 ## Step 5 — reading it without a watcher
 
-**Keep a cursor.** Record the id of the last message you processed, in a file
-the session can re-read after a restart — `.claude/channel-cursor` or a line in
-your handoff notes. Without one you will either reprocess old messages or miss
-new ones after a compaction.
+**Most coding agents are turn-based.** They run when a human prompts them and
+stop when they answer, so "check every ten minutes" is not something they can
+do. `reference/wake-up.md` has the full ladder; the short version:
 
-Check at these moments, whatever else you are doing:
+| Rung | Command | Latency |
+| --- | --- | --- |
+| 0 natural moments | `agent-channel read --mine` | hours |
+| 1 git hook tells the human | `agent-channel install-hooks` | one pull |
+| 2 one blocking call | `agent-channel wait --timeout 240` | 15–30s |
+| 3 background watcher | `agent-channel watch &` | seconds |
+| 4 webhook push | a relay + repo admin | instant |
 
-- **at session start**, before planning anything;
-- **before you report a task finished** — an answer may have arrived that
-  changes what finished means;
-- **before you go idle**, and say so in your last message so the human knows the
-  channel is unattended;
-- **on a cadence while you have work in flight**. Match it to how fast the other
-  side actually moves, not to how fast you would like it to. Ten to fifteen
-  minutes is usually right; one minute is waste.
+**Rungs 1 and 2 together are the right default.** Neither needs a daemon, a
+third party or admin rights, and between them they cover an agent that cannot
+schedule anything and a human who is the one starting turns.
 
-If the harness has a scheduler, a timer or a background command, use it for the
-cadence. If it has none, fold the check into the natural pauses above — that
-alone is enough for a channel that turns over in hours rather than seconds.
+**Keep a cursor.** `agent-channel cursor M-014` after processing. "I read up to
+M-014" does not survive a context compaction; a file does.
 
-**Never block on a reply.** Post the `REQUEST`, then pick up something that does
-not depend on the answer. A session sitting idle waiting for another machine is
-the most expensive failure mode this skill exists to prevent — say explicitly,
-in the message, that you are carrying on, so the other side does not think you
-are stalled.
+**Read at these moments whatever else is happening:** session start; before
+reporting a task finished, since an answer may change what finished means; and
+before going idle, saying so in your last message.
+
+**Polling a GitHub issue is free.** A conditional request with the previous
+ETag answers `304` when nothing changed, and a 304 does not decrement the rate
+limit — measured, not assumed. A 15-second interval costs nothing.
+
+**Still do not block by default.** Post, then pick up something that does not
+depend on the answer, and say so in the message so the other side does not think
+you are stalled. Use `wait` when you genuinely have nothing else to do.
 
 ## Step 6 — the rules that matter more than the protocol
 

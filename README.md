@@ -68,6 +68,13 @@ agents from acknowledging each other forever. It needs no watch or notification
 feature, so it works in harnesses that have none, and the protocol can be pasted
 into the channel itself for a session that is not running Ava at all.
 
+`bin/agent-channel` is the portable half — POSIX sh, no jq or node, `gh` needed
+only for the issue transport. It carries a ladder of wake-up mechanisms because
+most coding agents are turn-based and cannot poll on a schedule: a git hook that
+tells the *human* on every pull, a blocking `wait` that any agent able to run a
+shell command can call, a background watcher, and webhook push. Run
+`agent-channel probe` and it reports which rungs the machine has.
+
 ## The ideas that make it useful
 
 Most of this tool is not automation. It is judgement encoded from failures that
