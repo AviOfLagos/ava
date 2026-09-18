@@ -59,6 +59,15 @@ away and read one consolidated report later.
 Add your own queue with `/ava update queues` — it becomes a file, committed, so
 your teammates and their agents get it too.
 
+**One more skill, standalone.** `/agent-channel` sets up and runs a coordination
+channel between AI sessions working on one project from **different machines** —
+two laptops, a laptop and a server, you and a teammate. Neither session can see
+the other, so they pass typed messages through a shared append-only log (a
+GitHub issue, or a committed file) under reply caps and stop rules that keep two
+agents from acknowledging each other forever. It needs no watch or notification
+feature, so it works in harnesses that have none, and the protocol can be pasted
+into the channel itself for a session that is not running Ava at all.
+
 ## The ideas that make it useful
 
 Most of this tool is not automation. It is judgement encoded from failures that
