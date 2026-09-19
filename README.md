@@ -37,7 +37,7 @@ Claude Code? There is a vendored install too. Both are in
 
 ## What it does
 
-**Eleven queues** — named playbooks Ava dispatches:
+**Twelve queues** — named playbooks Ava dispatches:
 
 | Queue | Does |
 | ----- | ---- |
@@ -48,12 +48,13 @@ Claude Code? There is a vendored install too. Both are in
 | `watch-slack` | Incremental chat sweep; silent when nothing is new |
 | `inbound-comms` | Customer email → issue + drafted reply |
 | `feature-legal` | Does the feature work, and is it disclosed |
+| `cluster-and-dispatch` | Clusters the whole backlog, then one specialist agent per cluster in its own worktree |
 | `setup-ci-monitoring` | Installs CI + notification workflows |
 | `setup-memory` | Wires persistent memory across sessions |
 | `setup-toolchain` | Scans the repo, then proposes and installs the skills it needs, **gated** on one confirmation |
 | `promote-to-production` | Release, **gated** on a named approver's confirmation |
 
-**Six sub-agents** run the work concurrently in the background, so you can walk
+**Seven sub-agents** run the work concurrently in the background, so you can walk
 away and read one consolidated report later.
 
 Add your own queue with `/ava update queues` — it becomes a file, committed, so
@@ -79,6 +80,12 @@ shell command can call, a background watcher, and webhook push. Run
 
 Most of this tool is not automation. It is judgement encoded from failures that
 actually happened on real projects.
+
+**One issue, exactly one owner.** A flat backlog cannot be parallelised safely:
+point several agents at one undifferentiated list and two of them pick the same
+issue and edit the same files. `cluster-and-dispatch` gives every open issue
+exactly one cluster label, hands each cluster to one agent in its own git
+worktree, and reviews before merge.
 
 **Rank by blast radius, not by label.** A label is a claim. Silent data loss
 beats a loud cosmetic bug.

@@ -94,6 +94,11 @@ Then establish, and state plainly:
 - **How far is `<integration>` ahead of `<production>`?** Undeployed work is the
   most common way finished value sits unclaimed.
 - **Is anything actively broken for a real user right now?**
+- **Is every open issue clustered?** Only where `.claude/ava-clusters.md` exists:
+  one `cluster:` label per issue. It costs one `gh issue list` and it is what
+  makes parallel work safe — an unclustered issue is one that two agents can
+  both claim. If any label is missing, run `cluster-and-dispatch` step 1 before
+  spawning anything.
 
 ---
 
@@ -150,6 +155,7 @@ this skill file. Everything else in this document is unchanged.
 | `ci-recovery` | Diagnose failing CI, retry, fix causes, re-check | act |
 | `inbound-comms` | Customer email/feedback → issue + reply | act |
 | `feature-legal` | Feature works end-to-end + is disclosed | act |
+| `cluster-and-dispatch` | Cluster every open issue, one specialist agent per cluster, review before merge | act |
 | `setup-ci-monitoring` | Install CI + notification workflows | act |
 | `setup-memory` | Wire a persistent memory provider | act |
 | `setup-toolchain` | Scan the repo, then propose and install the skills it needs | gated |
@@ -174,7 +180,8 @@ background, so the user can interject. Independent queues never wait on each
 other.
 
 Agents: `ava-issue-triage`, `ava-pr-reviewer`, `ava-slack-watch`,
-`ava-feature-steward`, `ava-ci-medic`, `ava-release-warden`.
+`ava-feature-steward`, `ava-ci-medic`, `ava-release-warden`,
+`ava-cluster-owner`.
 
 Every agent prompt carries: the config slice it needs, what you learned in §2,
 the queue body, and §8's hard rules. Never make an agent re-derive what you
@@ -184,6 +191,23 @@ Scale to the work: one stuck PR is one agent; a CI outage with six failure
 causes is one agent per cause.
 
 Agent output is never shown to the user — relay what matters yourself.
+
+### Every agent that writes code takes its own worktree
+
+Concurrent agents share one checkout, and parts of a checkout are
+**repo-global** — they ignore the branch an agent thinks it is on. `git stash`
+(`refs/stash` is not per-worktree, so a pop in one worktree can drop another's
+entry), `pkill -f` on a shared path, and the installed dependency directory with
+anything generated into it. And a plain `git checkout -b` in the shared clone is
+how an hour's work lands on someone else's branch.
+
+So a code-writing agent's prompt must carry the worktree setup verbatim,
+**including the git identity** from `git.requiredAuthorName` /
+`git.requiredAuthorEmail`. A commit the deploy platform cannot attribute to an
+account with project access is refused at deploy time while every CI check still
+goes green — the work looks shipped and is not.
+
+Read-only agents (`ava-slack-watch`, `ava-pr-reviewer`) do not need one.
 
 ### Doing the work yourself
 

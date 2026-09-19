@@ -51,10 +51,11 @@ Nothing is copied into your repo except its own config:
 
 | Path | What |
 | ---- | ---- |
-| *(plugin install root)* | The skill, six agents, ten queues, templates, `bin/ava-home` |
+| *(plugin install root)* | The skill, seven agents, twelve queues, templates, `bin/ava-home` |
 | `.claude/ava.config.json` | **Per project.** Written by onboarding, committed |
 | `.claude/ava-state.json` | **Per project.** Gitignored — chat cursors, dedupe lists |
 | `.claude/queues/*.md` | **Per project, optional.** Queues this repo added |
+| `.claude/ava-clusters.md` | **Per project, optional.** Issue taxonomy for `cluster-and-dispatch`, committed |
 | `AVA-NOTES.md` | **Per project.** Traps Ava learns here |
 
 `ava-home` prints the install root; `ava-home queues` prints the queue registry
@@ -96,7 +97,9 @@ teammates. Add narrow negations rather than un-ignoring everything:
 !.claude/ava/
 !.claude/ava/**
 !.claude/ava.config.json
+!.claude/ava-clusters.md
 .claude/ava-state.json
+.claude/worktrees/
 .claude/settings.local.json
 ```
 

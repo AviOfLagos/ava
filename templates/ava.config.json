@@ -70,5 +70,10 @@
   "docs": {
     "landmines": "AVA-NOTES.md",
     "note": "Project-specific traps Ava must not repeat. Ava appends to this file as it learns them."
+  },
+  "git": {
+    "requiredAuthorName": "",
+    "requiredAuthorEmail": "",
+    "note": "The commit identity every clone and worktree must use. Some deploy platforms refuse to build a commit they cannot attribute to an account with project access — while every CI check still goes green. Leave empty if the platform does not care."
   }
 }

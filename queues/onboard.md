@@ -64,6 +64,18 @@ vercel whoami 2>/dev/null && vercel project ls 2>/dev/null | head
 Ask only what you cannot detect: the production URL, and the QA/staging URL if
 one exists. Fill `environments[]`.
 
+Then the commit identity. Some platforms refuse to build a commit they cannot
+attribute to an account with access, **while every CI check still goes green** —
+so the work looks shipped and is not. Ask:
+
+> Which name and email must commits carry for a deploy to be accepted? I'll
+> record it so every clone and worktree is set the same way.
+
+Fill `git.requiredAuthorName` / `git.requiredAuthorEmail`, or leave them empty
+if the platform does not care. Check the local identity now
+(`git config user.email`) and say if it disagrees — an unset one makes git
+invent an address no platform can attribute.
+
 If the deploy CLI is not authenticated, try to fix it rather than filing it:
 `vercel login` and the equivalents open a browser, and with browser tools
 available you can carry that through — see **Doing the work yourself** in
@@ -140,8 +152,11 @@ Fill it in from what you detected. Then check `.gitignore`:
 - `.claude/ava-setup-plan.md` **must** be ignored — it records what one person
   approved on one machine, and is actively misleading in someone else's
   checkout.
+- `.claude/worktrees/` **must** be ignored — scratch checkouts that
+  `cluster-and-dispatch` agents create and remove.
 - `.claude/ava.config.json` **must not** be — teammates and their agents need
-  the branch names, channels and approvers you just wrote.
+  the branch names, channels and approvers you just wrote. The same goes for
+  `.claude/ava-clusters.md` if `cluster-and-dispatch` later writes one.
 - If `ava-home` prints a path *inside this repo*, Ava is vendored here rather
   than plugin-installed, and the same applies to the skill, agents and queues:
   team tooling, must survive a fresh clone.
