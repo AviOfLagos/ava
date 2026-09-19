@@ -30,7 +30,7 @@ cp -R "$SRC/templates"    "$DEST/ava/templates"
 cp -R "$SRC/bin"          "$DEST/ava/bin"
 chmod +x "$DEST/ava/bin/ava-home"
 
-echo "✓ installed Ava into $DEST/ (skill, 6 agents, queues, templates, ava-home)"
+echo "✓ installed Ava into $DEST/ (skill, 7 agents, queues, templates, ava-home)"
 
 # .claude/queues/ is the project's own — queues you write with `/ava update
 # queues`. The installer creates it and then never touches it again, so an
@@ -66,6 +66,8 @@ if [ -f "$TARGET/.gitignore" ] && grep -qE '^\.claude/?$' "$TARGET/.gitignore"; 
       !.claude/ava/
       !.claude/ava/**
       !.claude/ava.config.json
+      !.claude/ava-clusters.md
+      .claude/worktrees/
       .claude/ava-state.json
       .claude/settings.local.json
 
