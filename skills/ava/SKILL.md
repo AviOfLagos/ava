@@ -57,6 +57,8 @@ Special forms:
 
 - **`/ava` alone** → §2 assessment, then decide via §3.
 - **`/ava install`**, or any run with no config → the `onboard` queue.
+- **`/ava setup`** (or the `/ava:setup` command) → the `setup` queue: sweep
+  what is configured, fix the additive gaps, hand back the rest.
 - **`/ava update queues`** → §6.
 - **`/ava upgrade`** → §7.
 - **`/ava status`** → §2 only. Report, change nothing.
@@ -144,6 +146,7 @@ this skill file. Everything else in this document is unchanged.
 | Queue | Does | Autonomy |
 | ----- | ---- | -------- |
 | `onboard` | Map the project, wire integrations, write config | act |
+| `setup` | Sweep what is configured; fix additive gaps | act |
 | `watch-slack` | Incremental chat sweep; surfaces human signal | auto |
 | `triage-issues` | Rank open issues, verify, fix scoped ones | act |
 | `review-prs` | Review diffs, diagnose stalls, reply to threads | act |

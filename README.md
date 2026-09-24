@@ -31,17 +31,30 @@ on your machine and onboarded per repo: onboarding writes
 `.claude/ava.config.json`, and committing that file is what makes a teammate's
 Ava agree with yours.
 
+Then, any time you want to know whether this machine is actually configured or
+just running on defaults:
+
+```
+/ava:setup
+```
+
+It sweeps project config, token/cost rules, commit identity, memory and CI
+monitoring; fixes the gaps that only add things; and hands back the ones that
+need you. Safe to run whenever — setup rot is silent, so the sweep is the only
+thing that catches it.
+
 Want Ava's version pinned inside a single repo, or using an agent other than
 Claude Code? There is a vendored install too. Both are in
 [INSTALL.md](INSTALL.md).
 
 ## What it does
 
-**Ten queues** — named playbooks Ava dispatches:
+**Twelve queues** — named playbooks Ava dispatches:
 
 | Queue | Does |
 | ----- | ---- |
 | `onboard` | Maps the project, wires integrations, writes config |
+| `setup` | Sweeps what is configured; fixes the additive gaps |
 | `triage-issues` | Ranks open issues by real user impact; fixes scoped ones |
 | `review-prs` | Reviews diffs, diagnoses stalls, replies to threads |
 | `ci-recovery` | Tells a real failure from an infrastructure outage, then fixes |
@@ -50,6 +63,7 @@ Claude Code? There is a vendored install too. Both are in
 | `feature-legal` | Does the feature work, and is it disclosed |
 | `setup-ci-monitoring` | Installs CI + notification workflows |
 | `setup-memory` | Wires persistent memory across sessions |
+| `setup-token-discipline` | Measures what burns your usage limit, then trims it |
 | `promote-to-production` | Release, **gated** on a named approver's confirmation |
 
 **Six sub-agents** run the work concurrently in the background, so you can walk

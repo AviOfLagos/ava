@@ -18,5 +18,6 @@
     "triage",
     "slack"
   ],
-  "skills": "./skills/"
+  "skills": "./skills/",
+  "commands": "./commands/"
 }
