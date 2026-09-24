@@ -146,12 +146,42 @@ exactly the intended files should be listed and nothing else.
 
 Create `AVA-NOTES.md` with a one-line header if absent.
 
-### 9. Offer the follow-on setup
+### 9. Establish token discipline (always, once per machine)
 
-Do not run these automatically — they modify CI and install external tools:
+Ava spawns sub-agents by design, and sub-agent fan-out is the single largest
+driver of limit usage on most machines. Shipping that behaviour without the
+matching cost rules is how Ava becomes expensive for someone who never asked
+for a fleet.
 
-> Two optional next steps: `setup-ci-monitoring` installs CI + notification
-> workflows, and `setup-memory` wires persistent memory. Want either now?
+So run the **additive** half of `setup-token-discipline` automatically, unless
+the machine already has it:
+
+```bash
+grep -ql 'Token discipline' ~/.claude/CLAUDE.md 2>/dev/null && echo present || echo absent
+ls ~/.claude/agents/scout.md 2>/dev/null || echo 'no scout agent'
+```
+
+If absent: install the `scout` recon agent and append the Token discipline
+section to global `CLAUDE.md` (and `AGENTS.md` if it exists), per steps 4 and 5
+of that queue. Both are purely additive — they add a cheaper agent and a short
+rules section, and remove no capability. Measure first where you can, so the
+numbers in the section are this machine's own.
+
+Say in one line what you added and why. Never do it silently: it is the user's
+global config, not this project's.
+
+**Do not** disable plugins, connectors or MCP servers here. That half removes
+capability and belongs behind the explicit offer below.
+
+### 10. Offer the follow-on setup
+
+Do not run these automatically — they modify CI, install external tools, or
+remove capability:
+
+> Three optional next steps: `setup-ci-monitoring` installs CI + notification
+> workflows, `setup-memory` wires persistent memory, and the trimming half of
+> `setup-token-discipline` measures which plugins and connectors you never use
+> and turns them off. Want any of them now?
 
 ## Stop conditions
 

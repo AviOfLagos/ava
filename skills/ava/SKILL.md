@@ -152,6 +152,7 @@ this skill file. Everything else in this document is unchanged.
 | `feature-legal` | Feature works end-to-end + is disclosed | act |
 | `setup-ci-monitoring` | Install CI + notification workflows | act |
 | `setup-memory` | Wire a persistent memory provider | act |
+| `setup-token-discipline` | Cut token/limit burn: measure, trim, write rules | act |
 | `promote-to-production` | `<integration>` → `<production>`, **gated** | gated |
 
 ### Autonomy tiers
