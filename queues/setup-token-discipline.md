@@ -39,23 +39,64 @@ attribution names the specific agent to fix.
 
 ### 2. Measure what the tool surface actually costs
 
+Do not estimate this. Claude Code reports it:
+
 ```bash
-python3 - <<'PY'
-import json, datetime
-d = json.load(open(f"{__import__('os').path.expanduser('~')}/.claude.json"))
-for k, v in sorted(d.get('pluginUsage', {}).items(), key=lambda kv: kv[1].get('usageCount', 0)):
-    if '@inline' in k: continue
-    ts = datetime.datetime.fromtimestamp(v.get('lastUsedAt', 0)/1000).date()
-    print(f"{v.get('usageCount',0):6d}  last={ts}  {k}")
-print('startups:', d.get('numStartups'))
-PY
+claude plugin list                      # installed, with effective enabled/disabled per cwd
+claude plugin details <name>            # component inventory + projected token cost
 ```
 
-A plugin with zero uses across dozens of startups is dead weight, and its cost
-is proportional to how many skills and MCP tools it contributes, not to its
-size on disk. Check `skillUsage` in the same file before concluding a plugin is
-unused — a plugin-provided skill and a built-in skill can share a name, and the
-built-in is usually the one being invoked.
+`details` splits the cost the way it actually behaves: **always-on** tokens are
+paid on every request of every session, **on-invoke** tokens only when that skill
+or agent fires. Optimise the always-on column. A plugin with a huge on-invoke
+cost and a small always-on cost is not a problem — it is a tool you are not
+paying for until you use it.
+
+Two things this reveals that estimating gets wrong:
+
+- **MCP tool schemas are resolved at runtime and cost ~0 always-on.** A plugin
+  exposing a hundred MCP tools can be nearly free to keep installed. Never
+  disable an MCP-heavy plugin for token reasons without checking `details`
+  first — count skills, not tools.
+- **Hooks are harness-only and cost nothing in model context.** A plugin whose
+  entire contribution is hooks is not a token problem at any usage count.
+
+Then confirm what is actually unused, reading `pluginUsage` and `skillUsage`
+from `~/.claude.json` — usage count against `numStartups`, plus the last-used
+date. A plugin with zero uses across dozens of startups is dead weight.
+
+Check `skillUsage` before concluding so: a plugin-provided skill and a built-in
+skill can share a name, and the built-in is usually the one being invoked.
+Disabling the plugin in that case removes something the user never called and
+changes nothing they will notice — but reporting it as "your unused plugin" when
+they invoke that name daily destroys trust in the whole sweep.
+
+### 2b. Prefer scoping over disabling
+
+Most heavy plugins are not unused — they are *project-specific*. A deploy plugin
+earns its keep in the repo that deploys and costs always-on tokens in every
+other session on the machine. The fix is scope, not removal:
+
+```bash
+claude plugin disable <name> --scope user       # stop paying for it everywhere
+cd <project-that-needs-it>
+claude plugin enable  <name> --scope project    # pay for it only here
+```
+
+**Order matters, and getting it wrong looks like success.** `enable --scope
+project` reports `already_in_goal_state` and writes nothing while user scope
+still enables the plugin — the CLI reports *effective* state, not the per-scope
+declaration. So: disable at user scope first, then enable at project scope, then
+verify with `claude plugin list` from both a needing and a non-needing directory.
+Project scope overrides user scope.
+
+Check whether `.claude/settings.json` is git-tracked before using `--scope
+project` in a shared repo; if it is, that enable ships to teammates. Use
+`--scope local` when the choice should stay on this machine.
+
+Detect which projects genuinely need a plugin from the repo itself rather than
+asking — a deploy config file, a driver in the dependency manifest, references
+to the service in source — and say what you found.
 
 ### 3. Find the heaviest tool output
 

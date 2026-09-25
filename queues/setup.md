@@ -61,8 +61,19 @@ where you can, so the numbers are this machine's own.
 Present ⇒ say so and move on. Do not re-append; a duplicated rules section
 costs tokens on every request, which is precisely the thing it exists to stop.
 
-Trimming unused plugins and connectors is **not** part of this sweep — it
-removes capability. Offer `setup-token-discipline` for that.
+While here, report the always-on cost of what is loaded:
+
+```bash
+claude plugin list
+claude plugin details <name>   # always-on vs on-invoke tokens
+```
+
+Always-on tokens are paid on every request of every session. A plugin that is
+heavy and project-specific should be *scoped*, not removed — see
+`setup-token-discipline` §2b. Report the opportunity here; do not act on it.
+
+Trimming or rescoping plugins and connectors is **not** part of this sweep — it
+removes capability from somewhere. Offer `setup-token-discipline` for that.
 
 ### 3. Commit identity
 
